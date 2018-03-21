@@ -533,7 +533,10 @@ def check_updates(url,ret=False):
 
 def check_updates2():
     c=[]
-    c.append( check_updates("http://climexp.knmi.nl/NCDCData/ersstv5.nc",ret=True) )
+    try:
+        c.append( check_updates("http://climexp.knmi.nl/NCDCData/ersstv5.nc",ret=True) )
+    except FileNotFoundError:
+        return True
     c.append( check_updates("ftp://ftp.cpc.ncep.noaa.gov/wd51yf/GHCN_CAMS/ghcn_cams_1948_cur_2.5.grb",ret=True) )
     #c.append( check_updates("http://www-users.york.ac.uk/~kdc3/papers/coverage2013/had4_krig_v2_0_0.nc.gz") )
     c.append( check_updates("http://climexp.knmi.nl/GPCCData/gpcc_10_combined.nc",ret=True) )
@@ -997,7 +1000,7 @@ def plot_climexp(data,line1,line2,line3,cmap=[],cmap_under=[],cmap_over=[],predi
 
     if data.name in ['tercile','cor']:
         cs = ax.contourf(lons,lats,data.values,clevs,norm=norm,cmap=cmap)#,clevs,norm,cmap)
-    elif data.name in ['crpss','rmsess','kprep']:
+    elif data.name in ['crpss','rmsess','kprep','crpss_co2']:
         cs = ax.contourf(lons,lats,data.values,clevs,norm=norm,cmap=cmap,extend='both')
     ax.coastlines()
     if sig != []:

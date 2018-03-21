@@ -4,10 +4,13 @@
 # User to specify predictand variable names
 # F. Krikken, KNMI, 2017.12.07
 # ---------------------------
-
-# First get resolution..
 res=$1
 
+# Copy grid description file to correct place
+cp ~/repositories/KPREPv2/griddes${res}.txt /nobackup_1/users/krikken/KPREP/targetgrid/
+# Change working directory to where to store data / files / plots / etc.
+cd /nobackup_1/users/krikken/KPREP
+# First get resolution..
 # Download ERSSTV5 from climexp
 wget -N http://climexp.knmi.nl/NCDCData/ersstv5.nc -P inputdata/
 # Download GHCN_CAMS from NCEP
@@ -22,7 +25,7 @@ cdo settunits,days -fillmiss -mergegrid -addc,273.15 -selyear,1948/2030 -remapbi
 
 # Download Hadley4 with kriging
 wget -N http://www-users.york.ac.uk/~kdc3/papers/coverage2013/had4_krig_v2_0_0.nc.gz -P inputdata/
-gunzip -f had4_krig_v2_0_0.nc.gz
+gunzip inputdata/had4_krig_v2_0_0.nc.gz
 cdo -remapbil,targetgrid/griddes${res}.txt -selyear,1901/2010 inputdata/had4_krig_v2_0_0.nc inputdata/had4_krig_v2_0_0_r${res}.nc
 
 
@@ -45,7 +48,7 @@ cdo remapbil,targetgrid/griddes${res}.txt inputdata/gpcc_10_combined.nc inputdat
 # Download the climate indices from climate explorer
 wget -N http://climexp.knmi.nl/CDIACData/RCP45_CO2EQ_mo.dat -P inputdata/
 wget -N http://climexp.knmi.nl/NCDCData/ersst_nino3.4a.dat -P inputdata/
-wget -N http://climexp.knmi.nl/NCDCData/qbo_30.dat -P inputdata/
+#wget -N http://climexp.knmi.nl/NCDCData/qbo_30.dat -P inputdata/
 wget -N http://climexp.knmi.nl/NCDCData/dmi_ersst.dat -P inputdata/
 wget -N http://climexp.knmi.nl/UWData/pdo_ersst.dat -P inputdata/
 wget -N http://climexp.knmi.nl/NCDCData/amo_ersst_ts.dat -P inputdata/
