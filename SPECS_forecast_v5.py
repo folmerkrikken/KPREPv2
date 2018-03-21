@@ -517,4 +517,4 @@ for p,predictand in enumerate(predictands):
     import time        
     print('Total time taken is: ',np.int((time.time()-start0)//60),' minutes and ',np.int((time.time()-start0)%60), 'seconds')
     
-os.system('rsync_climexp')
+os.system('rsync -avt -e ssh /nobackup_1/users/krikken/KPREP/plots/ oldenbor@bvlclim.knmi.nl:climexp/SPES/plots/')
