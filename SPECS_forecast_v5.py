@@ -55,7 +55,6 @@ overwrite_m = False         # Overwrite only the month specified with overw_m an
 overw_m = 5                 # Jan = 1, Feb = 2.. etc
 overw_y = 2017
 
-
 ## Update indices if possible
 UPDATE = True
 
@@ -102,7 +101,6 @@ print('Horizontal resolution is ',str(resolution/10.),' degrees')
 
 # Create list of dates used
 times = pd.date_range('1901-01',str(dt.year)+'-'+str(dt.month),freq='M')
-
 
 # ************************************************************************
 # Read in predictand data for fitting 
@@ -518,3 +516,4 @@ for p,predictand in enumerate(predictands):
     print('Total time taken is: ',np.int((time.time()-start0)//60),' minutes and ',np.int((time.time()-start0)%60), 'seconds')
     
 os.system('rsync -avt -e ssh /nobackup_1/users/krikken/KPREP/plots/ oldenbor@bvlclim.knmi.nl:climexp/SPES/plots/')
+os.system('rsync -avt /nobackup_1/users/krikken/KPREP/plots/ bhlclim:climexp/SPES/')
