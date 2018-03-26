@@ -18,8 +18,6 @@ from sklearn.preprocessing import Imputer
 import urllib.request, urllib.error, urllib.parse
 import zipfile
 from SPECS_forecast_v5_tools import *
-from cdo import *
-cdo = Cdo()
 import datetime
 import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning)
