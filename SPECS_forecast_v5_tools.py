@@ -25,8 +25,8 @@ from sklearn import feature_selection
 import urllib.request, urllib.error, urllib.parse, zipfile, gzip, shutil, tempfile
 from matplotlib.colors import BoundaryNorm
 from matplotlib.ticker import MaxNLocator
-from cdo import *
-cdo = Cdo()
+#from cdo import *
+#cdo = Cdo()
 import properscoring as ps
 from dateutil.relativedelta import relativedelta
 import ftplib, pandas as pd, xarray as xr
@@ -41,15 +41,15 @@ monthzz = 'JFMAMJJASONDJFMAMJJASOND'
 month_nm = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
 month_ss = ['FMA', 'MAM', 'AMJ', 'MJJ', 'JJA', 'JAS', 'ASO', 'SON', 'OND', 'NDJ', 'DJF', 'JFM']
 
-def get_landmask(resolution):
-    try:
-        mask = np.load('pickle/mask_' + str(resolution) + '.npy')
-    except IOError:
-        gpccprec = cdo.remapbil('targetgrid/griddes' + str(resolution) + '.txt', input='inputdata/gpcc_10_combined.nc', returnMaArray='prcp')
-        mask = np.any(gpccprec.mask, axis=0)
-        np.save('pickle/mask_' + str(resolution) + '.npy', mask)
+#def get_landmask(resolution):
+    #try:
+        #mask = np.load('pickle/mask_' + str(resolution) + '.npy')
+    #except IOError:
+        #gpccprec = cdo.remapbil('targetgrid/griddes' + str(resolution) + '.txt', input='inputdata/gpcc_10_combined.nc', returnMaArray='prcp')
+        #mask = np.any(gpccprec.mask, axis=0)
+        #np.save('pickle/mask_' + str(resolution) + '.npy', mask)
 
-    return mask
+    #return mask
 
 
 def regr_loop(predodata_3m, predodata_3m_trend, predadata_3m, timez, train, test, ens_size, bdnc, resolution, predictand,predictors,MLR_PRED, FC=True, sig_val=0.1):
