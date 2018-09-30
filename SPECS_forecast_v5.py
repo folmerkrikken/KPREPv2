@@ -4,41 +4,38 @@
 
 import os, sys, glob, re, pickle, time
 import numpy as np
-import numpy.ma as ma
+#import numpy.ma as ma
 import scipy
 import matplotlib
-#matplotlib.use('Agg')
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from mpl_toolkits.basemap import Basemap, shiftgrid
-from netCDF4 import Dataset
-from scipy import stats
-from scipy.stats import linregress,pearsonr
-from sklearn import  linear_model
-from sklearn.preprocessing import Imputer
+#from mpl_toolkits.basemap import Basemap, shiftgrid
+#from netCDF4 import Dataset
+#from scipy import stats
+#from scipy.stats import linregress,pearsonr
+#from sklearn import  linear_model
+#from sklearn.preprocessing import Imputer
 import urllib.request, urllib.error, urllib.parse
-import zipfile
+#import zipfile
 from SPECS_forecast_v5_tools import *
+import xarray as xr
+import pandas as pd
 import datetime
 import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning)
-import xarray as xr
-import pandas as pd
 
 ## TODO
 # Check for valid values of climate indices, if the timestap is updated does not indicate the value is updated..
 ## Fix causal hindcast
 
 dt = datetime.date.today()
-date_list = [dt.year, dt.month, dt.day]
+#date_list = [dt.year, dt.month, dt.day]
 start0 = time.time()
 
 predictands = ["GCEcom","20CRslp","GPCCcom"]
 
-predictors = ['CO2EQ','NINO34','PDO','AMO','IOD','CPREC','PERS']
-
-
 # Load these predictors, this does not mean that these are neceserally used.. see predictorz for those
-
+predictors = ['CO2EQ','NINO34','PDO','AMO','IOD','CPREC','PERS','PERS_TREND']
 
 # NAMELIST
 
@@ -46,10 +43,10 @@ predictors = ['CO2EQ','NINO34','PDO','AMO','IOD','CPREC','PERS']
 resolution = 25             # 10, 25 or 50
 
 ## Redo full hindcast period and remove original nc output file?
-overwrite = False
+overwrite = True
 
 ## Redo a specific month / year?
-overwrite_m = False         # Overwrite only the month specified with overw_m and overw_y
+overwrite_m = False          # Overwrite only the month specified with overw_m and overw_y
 overw_m = 5                 # Jan = 1, Feb = 2.. etc
 overw_y = 2017
 
@@ -66,7 +63,7 @@ DYN_MONAVG = False          # Include the dynamical monthly averaging in the pre
 MLR_PRED = True             # Include the trend of the last 3 month as predictor
 
 FORECAST = True             # Do forecast for given date?
-HINDCAST = True             # Validate forecast using leave n-out cross validation?
+HINDCAST = True             # Validate forecast based on hindcasts?
 CROSVAL = True              # Use cross-validation for validation
 CAUSAL = False              # Use causal method for validation
 cv_years = 3                # Leave n out cross validation
@@ -81,6 +78,7 @@ endmonth =      dt.month-1  # -1 as numpy arrays start with 0
 
 # Set working directories
 bd = '/nobackup_1/users/krikken/KPREP/'
+#bd = os.getcwd()+'/'
 bdid = bd+'inputdata/'
 bdp = bd+'plots/'
 bdnc = bd+'ncfiles/'
@@ -107,7 +105,8 @@ start1 = time.time()
 print('-- Read in predictand data for fitting --')
 predictorz = []     # Predefine empty array, fill with specified predictors for predictand
 
-UPDATE_INDICES = check_updates2()
+UPDATE_INDICES = check_updates2(inputdir=bdid) # if data can be update then returns TRUE
+sys.exit()
 if UPDATE_INDICES and UPDATE:
     import subprocess
     print("start updating monthly observations")
@@ -124,7 +123,7 @@ for p,predictand in enumerate(predictands):
     
     elif predictand == 'GCEcom':
         ## These predictors are selelected for GCEcom in the first predictor selection step
-        predictorz.append(['CO2EQ','NINO34','PDO','AMO','IOD','CPREC','PERS'])
+        predictorz.append(['CO2EQ','NINO34','PDO','AMO','IOD','CPREC','PERS','PERS_TREND'])
         gcecom = xr.open_dataset(bdid+'gcecom_r'+str(resolution)+'.nc').squeeze()
         gcecom = gcecom.drop('lev')
         gcecom = gcecom.rename({'sst':'tas'})
@@ -160,20 +159,20 @@ for p,predictand in enumerate(predictands):
 
     elif predictand == 'GPCCcom':
         # These predictors are selelected for GPCCcom in the first predictor selection step
-        predictorz.append(['CO2EQ','NINO34','AMO','IOD','PERS'])
+        predictorz.append(['CO2EQ','NINO34','AMO','IOD','PERS','PERS_TREND'])
         gpcccom = xr.open_dataset(bdid+'gpcc_10_combined_r'+str(resolution)+'.nc')
         # Create anomalies with 1980-2010 as baseline climatology
-        gpcccom.prcp.values = anom_df(gpcccom.prcp,1980,2010,styear)
+        gpcccom.precip.values = anom_df(gpcccom.precip,1980,2010,styear)
         gpcccom.time.values = rewrite_time(gpcccom)
 
-        gpcccom = gpcccom.prcp.rename('GPCCcom')
+        gpcccom = gpcccom.precip.rename('GPCCcom')
         if p == 0: predadata = xr.Dataset({'GPCCcom':gpcccom.astype('float32')})
         else: predadata = xr.merge([predadata,gpcccom.astype('float32')])
 
 
     elif predictand == '20CRslp':
         # These predictors are selelected for 20CRslp in the first predictor selection step
-        predictorz.append(['CO2EQ','NINO34','PDO','AMO','IOD','CPREC','PERS'])
+        predictorz.append(['CO2EQ','NINO34','PDO','AMO','IOD','CPREC','PERS','PERS_TREND'])
         slp = xr.open_dataset(bdid+'slp_mon_mean_1901-current_r25.nc')
         slp.prmsl.values = anom_df(slp.prmsl,1980,2010,styear)
         slp = slp.prmsl.rename('20CRslp')
@@ -211,8 +210,8 @@ for i,pred in enumerate(predictors):
 
     elif pred == 'CPREC':    # Cum precip [time,lat,lon] - 1901 -current
         gpcccom = xr.open_dataset(bdid+'gpcc_10_combined_r'+str(resolution)+'.nc')
-        gpcccom.prcp.values = anom_df(gpcccom.prcp,1980,2010,styear)
-        gpcccom = gpcccom.prcp.rename('CPREC')
+        gpcccom.precip.values = anom_df(gpcccom.precip,1980,2010,styear)
+        gpcccom = gpcccom.precip.rename('CPREC')
         gpcccom.time.values = rewrite_time(gpcccom)
         if i == 0: predodata = df
         else: predodata = xr.merge([predodata,gpcccom.astype('float32')])
@@ -256,6 +255,7 @@ for p,predictand in enumerate(predictands):
                 print('Data already up to date... continue to next in loop')
                 continue
             mon_range = list(range(monrange[0].month-1,monrange[-1].month))
+            datanc.close()
             #print mon_range
         except IOError:  # If file does not exist do full hindcast
             mon_range = list(range(12))
@@ -263,7 +263,8 @@ for p,predictand in enumerate(predictands):
 
     
     # Rolling 3-month mean, first and last timestep become nans, so remove last timestep (slice(None,-1))
-    predodata_3m  = predodata[predictorz[p]].rolling(time=3,center=True).mean().isel(time=slice(None,-1))
+    # use predictorz[p][:-1] to exclude 'PERS_TREND' from this operation as this predictor is added later
+    predodata_3m = predodata[predictorz[p][:-1]].rolling(time=3,center=True).mean().isel(time=slice(None,-1))
     predadata_3m = predadata[predictand].rolling(time=3,center=True).mean().isel(time=slice(None,-1))
     
     # Change time values of predictor and predictand data for simplicity. Add 2 months for predictor data and subtract 2 months for predicand data. This means the dates do not represent the exact time off the data anymore, but is much easier for selecting the right training / testing data etc.
@@ -272,9 +273,10 @@ for p,predictand in enumerate(predictands):
     
     if MLR_PRED: 
         print('MLR_PRED is True, calculating trend over previous 3 months for all predictors')
-        predodata_3m_trend = pred_trend(predodata[predictorz[p]]).isel(time=slice(None,-1))
+        predodata_3m_trend = pred_trend(predodata[predictorz[p][:-1]]).isel(time=slice(None,-1))
         predodata_3m_trend['time'].values = pd.DatetimeIndex(predodata_3m_trend['time'].values) + pd.DateOffset(months=2)
 
+    
 
     # Start loop over the months to update, normally this is just 1 month
     for m in mon_range:
@@ -514,4 +516,4 @@ for p,predictand in enumerate(predictands):
     print('Total time taken is: ',np.int((time.time()-start0)//60),' minutes and ',np.int((time.time()-start0)%60), 'seconds')
     
 os.system('rsync -avt -e ssh /nobackup_1/users/krikken/KPREP/plots/ oldenbor@bvlclim.knmi.nl:climexp/SPES/plots/')
-os.system('rsync -avt /nobackup_1/users/krikken/KPREP/plots/ bhlclim:climexp/SPES/')
+#os.system('rsync -avt /nobackup_1/users/krikken/KPREP/plots/ bhlclim:climexp/SPES/')

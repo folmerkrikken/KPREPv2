@@ -5,21 +5,27 @@
 # Embedded file name: SPECS_forecast_v5_tools.py
 # Compiled at: 2018-01-09 20:16:22
 
-import os, sys, glob, re, pickle, numpy as np, numpy.ma as ma, datetime, time
-from scipy.io import netcdf
-import scipy, matplotlib, matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
-import matplotlib, matplotlib.backends.backend_pdf
-from mpl_toolkits.axes_grid1 import ImageGrid
-from mpl_toolkits.basemap import Basemap, shiftgrid
+import os, sys, glob, re, pickle
+import numpy as np
+#numpy.ma as ma, 
+import datetime
+import time
+#from scipy.io import netcdf
+import scipy
+import matplotlib
+import matplotlib.pyplot as plt
+#from matplotlib.backends.backend_pdf import PdfPages
+#import matplotlib, matplotlib.backends.backend_pdf
+#from mpl_toolkits.axes_grid1 import ImageGrid
+#from mpl_toolkits.basemap import Basemap, shiftgrid
 from netCDF4 import Dataset, num2date, date2num
 from matplotlib import cm as CM
 from matplotlib import colors
-import matplotlib.image as mpimg
+#import matplotlib.image as mpimg
 from scipy import stats
 from matplotlib.backends.backend_pdf import PdfPages
-from itertools import cycle
-from scipy.stats import linregress, pearsonr
+#from itertools import cycle
+#from scipy.stats import linregress, pearsonr
 from sklearn import linear_model
 from sklearn import feature_selection
 import urllib.request, urllib.error, urllib.parse, zipfile, gzip, shutil, tempfile
@@ -28,8 +34,10 @@ from matplotlib.ticker import MaxNLocator
 #from cdo import *
 #cdo = Cdo()
 import properscoring as ps
-from dateutil.relativedelta import relativedelta
-import ftplib, pandas as pd, xarray as xr
+#from dateutil.relativedelta import relativedelta
+import ftplib
+import pandas as pd
+import xarray as xr
 #from SPECS_forecast_v2_tools import plot_corr_pred
 import cartopy.crs as ccrs
 from joblib import Parallel,delayed
@@ -81,20 +89,24 @@ def regr_loop(predodata_3m, predodata_3m_trend, predadata_3m, timez, train, test
             predodata_3m_f_nc = remove_co2_po(predodata_3m.sel(time=timez_f), predodata_3m['CO2EQ'].sel(time=timez_f), train+pd.DateOffset(months=4))
 
         predodata_3m_fit = fit_predictors(y=predodata_3m_f_nc, x1=predodata_3m_nc, x2=predodata_3m_trend_nc, train_p=train, train_f=train+pd.DateOffset(months=4))
-        
+        predodata_3m_fit['PERS_TREND'] = predodata_3m_trend_nc['PERS']
     else:
         predodata_3m_fit = predodata_3m_nc  # Check if I shouldn't add .sel(time=timez)
-    
+    #print(predodata_3m_fit)
     # Get correlation between predictor and predictand   
-
+    bdp = bdnc+'../plots/'
     if FC:
+        # Get the correlation between predictor and predictand without stepwise selection
         cor_nc, sig_nc = cor_pred(predodata_3m_fit.sel(time=train), predadata_3m_nc.sel(time=train), y=predadata_3m.sel(time=train))
-        plotcor_pred(cor_nc,sig=sig_nc,bd='/nobackup/users/krikken/SPESv2/testplots/'+predictand+'/predcor/',savename='corr_pred_orig_'+str(test[0])[:7],suptitle=predictand+' '+str(test[0])[:7])
+        plotcor_pred(cor_nc,sig=sig_nc,bd=bdp+predictand+'/predcor/',savename='corr_pred_orig_'+str(test[0])[:7],suptitle=predictand+' '+str(test[0])[:7])
     
+    # Get the correlation between predictor and predictand with stepwise selection
     cor_nc, sig_nc = get_sig_pred(predodata_3m_fit.sel(time=train), predadata_3m_nc.sel(time=train), predadata_3m.sel(time=train))
+    #print(cor_nc)
+    #sys.exit()
     if FC:    # save figure with correlation between predictor and predictand
         #plot_corr_pred(cor_nc,sig_nc,predictand,predictors,test[0].year,test[0].month,'/nobackup/users/krikken/SPESv2/plots/'+predictand+'/predcor/',CLICK_PREDCOR=True)
-        plotcor_pred(cor_nc,sig=sig_nc,bd='/nobackup/users/krikken/SPESv2/testplots/'+predictand+'/predcor/',savename='corr_pred_stepwise_'+str(test[0])[:7],suptitle=predictand+' '+str(test[0])[:7])
+        plotcor_pred(cor_nc,sig=sig_nc,bd=bdp+predictand+'/predcor/',savename='corr_pred_stepwise_'+str(test[0])[:7],suptitle=predictand+' '+str(test[0])[:7])
     
     # Predefine dataset to write output to, and fill with nans
     data_fit = xr.Dataset(coords={'lat': predadata_3m.lat,
@@ -103,12 +115,12 @@ def regr_loop(predodata_3m, predodata_3m_trend, predadata_3m, timez, train, test
                              'ens': list(range(1, ens_size + 1))})    
     
     kprep = np.full((len(test), ens_size, len(predodata_3m.lat), len(predodata_3m.lon)),np.nan,dtype='float32')
-    clim= np.full_like(kprep,np.nan)
+    clim = np.full_like(kprep,np.nan)
     trend = np.full_like(kprep,np.nan)
     obs = np.full((len(test), len(predodata_3m.lat), len(predodata_3m.lon)),np.nan,dtype='float32')
     
                           
-    beta = np.full((len(test),len(list(predodata_3m.data_vars.keys())),len(predodata_3m.lat), len(predodata_3m.lon)),np.nan,dtype='float32')
+    beta = np.full((len(test),len(list(predodata_3m_fit.data_vars.keys())),len(predodata_3m.lat), len(predodata_3m.lon)),np.nan,dtype='float32')
 
     beta_xr = xr.Dataset(coords={'time':test,'predictors':list(range(beta.shape[1])),'lat':predadata_3m.lat,'lon':predadata_3m.lon})
     #beta_xr.time.attrs = {'units':'days since 1901-01-01'}  
@@ -460,7 +472,7 @@ def to_nc2(data_xr,path_filename,mode = 'w'):
                     appendvar[np.asarray(idx).squeeze(),:] = data_xr[var].values[t,:]
                 else:               # If new timestep, then append to dataset
                     appendvar[lentime+t,:] = data_xr[var].values[t,:]
-                    if v == len(data_xr.data_vars)-1:
+                    if v == len(data_xr.data_vars)-1:   # If last variable, than add time to time dimension
                         t_old[lentime+t] = t_int
         nc_data.close()
 
@@ -475,24 +487,8 @@ def to_nc3(data_xr,path_filename):
         os.remove(path_filename+'.nc')
         data_new.to_netcdf(path_filename+'.nc','w')
     
-#def to_nc2(data_xr,path_filename,mode = 'w'):
-    #if mode == 'w':
-        #data_xr.to_netcdf(path_filename,mode=mode)
-    #elif mode == 'a':
-        #data_nc = Dataset(path_filename,'a')
-        #kprep = data_nc.variables['kprep']
-        #lin = data_nc.variables['trend']
-        #obs = data_nc.variables['obs']
-        #clim = data_nc.variables['clim']
-        #times = data_nc.variables['time']
-        
-        
-        
-    #else: 
-        #print 'mode not known.. either a or w'
-        #sys.exit()
-def check_updates(url,ret=False):
-    update=True
+
+def check_updates(url,ret=False,inputdir='inputdata/'):
     if 'cpc.ncep.noaa' in url:
         f = ftplib.FTP()
         f.connect("ftp.cpc.ncep.noaa.gov")
@@ -509,46 +505,40 @@ def check_updates(url,ret=False):
     else:
         u = urllib.request.urlopen(url)
         meta = u.info()
-        #print(meta)
-        #print(meta.get("Last-Modified"))
-        #print("Last Modified: " + str(meta.getheaders("Last-Modified")))
-        #print url.rsplit('/',1)[1]
         # CONVERTING HEADER TIME TO UTC TIMESTAMP
         # ASSUMING 'Sun, 28 Jun 2015 06:30:17 GMT' FORMAT
-        #meta_modifiedtime = time.mktime(datetime.datetime.strptime(meta.get("Last-Modified"), "%a, %d %b %Y %X GMT").timetuple())
         meta_modifiedtime = time.mktime(datetime.datetime.strptime(meta.get("Last-Modified")[:16], "%a, %d %b %Y").timetuple())
         #print datetime.datetime.strptime(meta.getheaders("Last-Modified")[0], "%a, %d %b %Y %X GMT")
     dt = datetime.date.today()
 
-    #date_time = '01.'+str(dt.month)+'.'+str(dt.year)
-    #ref_time = int(time.mktime(time.strptime(date_time, '%d.%m.%Y')))
-    ref_time = os.path.getmtime('inputdata/'+os.path.split(url)[1])
+    ref_time = os.path.getmtime(inputdir+os.path.split(url)[1])
     if meta_modifiedtime > ref_time:
         print('Data can be updated!','  --- ',url.rsplit('/',1)[1])
+        update=True
     else:
         print('Data can NOT be updated','  --- ',url.rsplit('/',1)[1])
         update=False
     if ret: return update
 
 
-def check_updates2():
+def check_updates2(inputdir='inputdata/'):
     c=[]
     try:
-        c.append( check_updates("http://climexp.knmi.nl/NCDCData/ersstv5.nc",ret=True) )
+        c.append( check_updates("http://climexp.knmi.nl/NCDCData/ersstv5.nc",ret=True,inputdir=inputdir) )
     except FileNotFoundError:
         return True
-    c.append( check_updates("ftp://ftp.cpc.ncep.noaa.gov/wd51yf/GHCN_CAMS/ghcn_cams_1948_cur_2.5.grb",ret=True) )
+    c.append( check_updates("ftp://ftp.cpc.ncep.noaa.gov/wd51yf/GHCN_CAMS/ghcn_cams_1948_cur_2.5.grb",ret=True,inputdir=inputdir) )
     #c.append( check_updates("http://www-users.york.ac.uk/~kdc3/papers/coverage2013/had4_krig_v2_0_0.nc.gz") )
-    c.append( check_updates("http://climexp.knmi.nl/GPCCData/gpcc_10_combined.nc",ret=True) )
+    c.append( check_updates("http://climexp.knmi.nl/GPCCData/gpcc_10_combined.nc",ret=True,inputdir=inputdir) )
     #url_prmsl ='http://climexp.knmi.nl/20C/prmsl.mon.mean.nc'
     #check_updates(url_prmsl)
-    c.append( check_updates('http://climexp.knmi.nl/NCEPNCAR40/slp.mon.mean.nc',ret=True) )
-    c.append( check_updates("http://climexp.knmi.nl/NCDCData/ersst_nino3.4a.dat",ret=True) )
+    c.append( check_updates('http://climexp.knmi.nl/NCEPNCAR40/slp.mon.mean.nc',ret=True,inputdir=inputdir) )
+    c.append( check_updates("http://climexp.knmi.nl/NCDCData/ersst_nino3.4a.dat",ret=True,inputdir=inputdir) )
     #url_qbo="http://climexp.knmi.nl/data/iqbo_30.dat"
     #check_updates(url_qbo)
-    c.append( check_updates("http://climexp.knmi.nl/NCDCData/dmi_ersst.dat",ret=True) )
-    c.append( check_updates("http://climexp.knmi.nl/UWData/pdo_ersst.dat",ret=True) )
-    c.append( check_updates("http://climexp.knmi.nl/NCDCData/amo_ersst_ts.dat",ret=True) )
+    c.append( check_updates("http://climexp.knmi.nl/NCDCData/dmi_ersst.dat",ret=True,inputdir=inputdir) )
+    c.append( check_updates("http://climexp.knmi.nl/UWData/pdo_ersst.dat",ret=True,inputdir=inputdir) )
+    c.append( check_updates("http://climexp.knmi.nl/NCDCData/amo_ersst_ts.dat",ret=True,inputdir=inputdir) )
     return np.asarray(c,dtype='bool').all()
 
 
@@ -855,6 +845,7 @@ def cor_pred(x_nc, y_nc, y=[]):
     #return cor,sig 
 
 
+    
 def plotcor_pred(cor,sig=[],bd=[],savename=None,sig_val=0.1,suptitle=''):
     '''Plot the correlation between the predictor and predictand
     cor = correlation
@@ -864,11 +855,12 @@ def plotcor_pred(cor,sig=[],bd=[],savename=None,sig_val=0.1,suptitle=''):
     sig_val = significance threshold values
     suptitle = title of plot
     '''
+    if not os.path.exists(bd): os.makedirs(bd)
     proj = ccrs.PlateCarree()
     fig, axes = plt.subplots(4, 2, subplot_kw=dict(projection=proj),figsize=(9,12))
     lons,lats = cor.lon.values,cor.lat.values
     cmap = 'RdYlBu_r'
-    for ax,pred in zip(axes.flat[:-1],cor.data_vars):
+    for ax,pred in zip(axes.flat[:len(cor.data_vars)],cor.data_vars):
         pcont = ax.contourf(lons,lats,cor[pred].values,levels=np.arange(-1.,1.1,.2),cmap=cmap)
         try:
             xx,yy = np.where(sig[pred].values<sig_val)
@@ -954,29 +946,7 @@ def tercile_category(hc,fc): # Note, last hindcast is forecast..
     tercile = np.where(sum_ut>sum_lt,sum_ut/0.51,-sum_lt/0.51)
     return tercile
 
-def plotcor_pred(cor,sig=[],bd=[],savename=None,sig_val=0.1,suptitle=''):
-    proj = ccrs.PlateCarree()
-    fig, axes = plt.subplots(4, 2, subplot_kw=dict(projection=proj),figsize=(9,12))
-    lons,lats = cor.lon.values,cor.lat.values
-    cmap = 'RdYlBu_r'
-    for ax,pred in zip(axes.flat[:-1],cor.data_vars):
-        pcont = ax.contourf(lons,lats,cor[pred].values,levels=np.arange(-1.,1.1,.2),cmap=cmap)
-        try:
-            xx,yy = np.where(sig[pred].values<0.1)
-            ax.scatter(lons[yy],lats[xx],marker='.',c='k',s=0.7,lw=0.)
-        except:
-            print('no sig values')
-        ax.coastlines()
-        ax.set_title(pred)
-    cax = matplotlib.axes.Axes(fig,[0.83, 0.4, 0.09, 0.3])
-    fig.colorbar(pcont,ax=cax)  
-    fig.suptitle(suptitle,fontsize=12)
-    if savename == None:
-        plt.show()
-    else: 
-        plt.savefig(bd+savename+'.png')
-        plt.close('all')
-    
+
 
 def plot_climexp(data,line1,line2,line3,cmap=[],cmap_under=[],cmap_over=[],predictand=[],sig=[],fname=[],PLOT=False,clevs=[],barticks=[]):
     #print('plotting '+data.name)
@@ -1020,10 +990,52 @@ def plot_climexp(data,line1,line2,line3,cmap=[],cmap_under=[],cmap_over=[],predi
     if PLOT: plt.show()
     else: plt.close('all')
     
+def plot_climexp2(data,line1,line2,line3,cmap=[],cmap_under=[],cmap_over=[],predictand=[],sig=[],fname=[],PLOT=False,clevs=[],barticks=[]):
+    #print('plotting '+data.name)
+    proj = ccrs.PlateCarree()
+    fig = plt.figure(figsize=(12,8))
+    ax = plt.subplot(111, projection=ccrs.PlateCarree())
+    ax.set_facecolor('red')
+    ax.set_global()
+    ax.set_extent([-180,180,90,-90], ccrs.PlateCarree())
+    lons,lats = data.lon.values,data.lat.values
+    lon2d, lat2d = np.meshgrid(lons, lats)
+    ax.annotate(line1, xy=(0, 1.10), xycoords='axes fraction',fontsize=14,ha='left',va='center')
+    ax.annotate(line2, xy=(0, 1.15), xycoords='axes fraction',fontsize=18,ha='left',va='center')
+    ax.annotate(line3, xy=(0, 1.05), xycoords='axes fraction',fontsize=10,ha='left',va='center')
+    if clevs == []:
+        clevs = np.arange(np.nanmin(data),np.nanmax(data), 0.1)#[-0.5,-0.35,-0.2,-0.1,0.1,0.2,0.35,0.5]
+    if cmap == []: cmap = plt.cm.RdYlBu_r
+    if cmap_under != []: cmap.set_under(cmap_under)
+    if cmap_over != []: cmap.set_over(cmap_over)
+    norm = matplotlib.colors.BoundaryNorm(clevs, cmap.N)
+
+    if data.name in ['tercile','cor']:
+        cs = ax.contourf(lons,lats,data.values,clevs,norm=norm,cmap=cmap)#,clevs,norm,cmap)
+    elif data.name in ['crpss','rmsess','kprep','crpss_co2']:
+        cs = ax.contourf(lons,lats,data.values,clevs,norm=norm,cmap=cmap,extend='both')
+    ax.coastlines()
+    if sig != []:
+       if data.name == 'kprep': sigvals = np.where(np.logical_and(sig[:,:]>0.1,sig[:,:]<1.))
+       else: sigvals = np.where(sig[:,:]<0.05)
+       ax.scatter(lon2d[sigvals],lat2d[sigvals],marker='.',c='k',s=5.,lw=0.)
+                    
+    ax.background_patch.set_facecolor('lightgray')
+        
+    #cbar = fig.colorbar(cs,cmap=cmap,norm=norm,boundaries=clevs,location='bottom',pad="10%")
+    cax = matplotlib.axes.Axes(fig,[0.1, 0.15, 0.8, 0.25])
+    cbar = fig.colorbar(cs,ax=cax,cmap=cmap,norm=norm,boundaries=clevs,orientation='horizontal',shrink=0.8)
+    
+    #fig.colorbar(pcont,ax=cax)  
+    if barticks != []: cbar.ax.set_xticklabels(barticks)
+    if fname != []: plt.savefig(fname)
+    return fig
+    #if PLOT: plt.show()
+    #else: plt.close('all')    
 
   
-def check_results(predictand,plottype='ensmean',mm=[],extra='',version=''):
-    bdnc = '/nobackup/users/krikken/SPESv2/ncfiles/test/' 
+def check_results(predictand,plottype='ensmean',mm=[],extra='',version='',bdnc='/nobackup/users/krikken/SPESv2/ncfiles/'):
+    #bdnc = '/nobackup/users/krikken/SPESv2/ncfiles/test/' 
     cmap1 = matplotlib.colors.ListedColormap(['#000099','#3355ff','#66aaff','#77ffff','#ffffff','#ffff33','#ffaa00','#ff4400','#cc0022'])
     cmap2 = matplotlib.colors.ListedColormap(['#3355ff','#66aaff','#77ffff','#ffffff','#ffff33','#ffaa00','#ff4400'])
     cmap_u = '#000099'
@@ -1036,7 +1048,7 @@ def check_results(predictand,plottype='ensmean',mm=[],extra='',version=''):
         if predictand == 'GPCCcom': clevz = np.array((-200.,-100.,-50.,-20.,20.,50.,100.,200.))
         if predictand == '20CRslp': clevz=np.array((-4.,-2.,-1.,-0.5,0.5,1.,2.,4.))
         
-        plotdata(fit_data.kprep.sel(time=timez).mean('ens'),title=predictand+' - '+plottype+' - '+str(timez)[:7],CLICK_D=False,CLICK_C=False,CLICK_R=False,cmap=cmap2,clevs=clevz,cmap_under=cmap_u,cmap_over=cmap_o,predictand=predictand,mm=mm)
+        plotdata(fit_data.kprep.sel(time=timez).mean('ens'),title=predictand+' - '+plottype+' - '+str(timez)[:7],CLICK_D=False,CLICK_C=False,CLICK_R=False,cmap=cmap2,clevs=clevz,cmap_under=cmap_u,cmap_over=cmap_o,predictand=predictand,mm=mm,bdnc=bdnc)
 
     else:
         scores = xr.open_dataset(bdnc+'scores_v2_'+predictand+'.nc')
@@ -1046,10 +1058,10 @@ def check_results(predictand,plottype='ensmean',mm=[],extra='',version=''):
         elif plottype == 'tercile':
             clev = np.array((-100,-70,-60,-50,-40,40,50,60,70,100))
         else: print('plottype not known..');sys.exit()
-        plotdata(scores[plottype].sel(time=timez),title=predictand+' - '+plottype+' - '+str(timez)[:7],CLICK_D=True,CLICK_C=False,CLICK_R=False,cmap=cmap2,clevs=clev,cmap_under=cmap_u,cmap_over=cmap_o,predictand=predictand,mm=mm) 
+        plotdata(scores[plottype].sel(time=timez),title=predictand+' - '+plottype+' - '+str(timez)[:7],CLICK_D=True,CLICK_C=False,CLICK_R=False,cmap=cmap2,clevs=clev,cmap_under=cmap_u,cmap_over=cmap_o,predictand=predictand,mm=mm,bdnc=bdnc) 
             
-def plotdata(data,cmap=[],cmap_under=[],cmap_over=[],predictand=[],sig=[],fname=[],PLOT=True,clevs=[],barticks=[],CLICK_C=False,CLICK_R=False,CLICK_D=False,clev=[],title=[],mm=[]):
-    #print('plotting '+data.name)
+def plotdata(data,cmap=[],cmap_under=[],cmap_over=[],predictand=[],sig=[],fname=[],PLOT=True,clevs=[],barticks=[],CLICK_C=False,CLICK_R=False,CLICK_D=False,clev=[],title=[],mm=[],bdnc=[]):
+    print('plotting '+data.name)
     proj = ccrs.PlateCarree()
     fig = plt.figure(figsize=(12,8))
     ax = plt.subplot(111, projection=ccrs.PlateCarree())
@@ -1086,10 +1098,11 @@ def plotdata(data,cmap=[],cmap_under=[],cmap_over=[],predictand=[],sig=[],fname=
     if fname != []: plt.savefig(fname)    
     if CLICK_D: 
             cid = fig.canvas.mpl_connect('button_press_event', onclick_locdata) 
-            pickle.dump([ax,lats,lons,predictand,mm],open('pickle/locdata.pkl','wb'))
+            pickle.dump([ax,lats,lons,predictand,mm,bdnc],open('locdata.pkl','wb'))
     if CLICK_R:
             cid = fig.canvas.mpl_connect('button_press_event', onclick_locregr2d) 
-            pickle.dump([ax,lats,lons,predictand,mm],file('pickle/locregr.pkl','w'))
+            pickle.dump([ax,lats,lons,predictand,mm,bdnc],file('locregr.pkl','w'))
+    print(PLOT)
     if PLOT: plt.show()
     else: plt.close('all')    
 
@@ -1098,9 +1111,9 @@ def onclick_locdata(event):
     # First return the data from the selected gridpoint
     print(('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
         (event.button, event.x, event.y, event.xdata, event.ydata)))
-    ax,lats,lons,predictand,mm = pickle.load(open('pickle/locdata.pkl','rb'))
+    ax,lats,lons,predictand,mm,bdnc = pickle.load(open('locdata.pkl','rb'))
     # Retrieve associated array indices for the coordinates
-    bdnc = '/nobackup/users/krikken/SPESv2/ncfiles/test/'
+    #bdnc = '/nobackup/users/krikken/SPESv2/ncfiles/test/'
     #print(ax,lats,lons,predictand)
     #sys.exit()
     ## Plot model fit data..

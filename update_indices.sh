@@ -25,7 +25,7 @@ cdo settunits,days -fillmiss -mergegrid -addc,273.15 -selyear,1948/2030 -remapbi
 
 # Download Hadley4 with kriging
 wget -N http://www-users.york.ac.uk/~kdc3/papers/coverage2013/had4_krig_v2_0_0.nc.gz -P inputdata/
-gunzip inputdata/had4_krig_v2_0_0.nc.gz
+gunzip -f inputdata/had4_krig_v2_0_0.nc.gz
 cdo -remapbil,targetgrid/griddes${res}.txt -selyear,1901/2010 inputdata/had4_krig_v2_0_0.nc inputdata/had4_krig_v2_0_0_r${res}.nc
 
 
