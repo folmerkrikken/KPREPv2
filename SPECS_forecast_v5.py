@@ -106,7 +106,6 @@ print('-- Read in predictand data for fitting --')
 predictorz = []     # Predefine empty array, fill with specified predictors for predictand
 
 UPDATE_INDICES = check_updates2(inputdir=bdid) # if data can be update then returns TRUE
-sys.exit()
 if UPDATE_INDICES and UPDATE:
     import subprocess
     print("start updating monthly observations")
