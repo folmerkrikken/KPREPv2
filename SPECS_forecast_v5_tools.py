@@ -69,7 +69,7 @@ def regr_loop(predodata_3m, predodata_3m_trend, predadata_3m, timez, train, test
     
     # Make list of times that would give the future state of predictor data 
     timez_f = timez + pd.DateOffset(months=4)
-    print(FC)
+    #print(FC)
     if FC: test = [test]
     else:  test = test
         
@@ -99,6 +99,8 @@ def regr_loop(predodata_3m, predodata_3m_trend, predadata_3m, timez, train, test
         # Get the correlation between predictor and predictand without stepwise selection
         cor_nc, sig_nc = cor_pred(predodata_3m_fit.sel(time=train), predadata_3m_nc.sel(time=train), y=predadata_3m.sel(time=train))
         plotcor_pred(cor_nc,sig=sig_nc,bd=bdp+predictand+'/predcor/',savename='corr_pred_orig_'+str(test[0])[:7],suptitle=predictand+' '+str(test[0])[:7])
+        cor_nc.to_netcdf(bdnc+'cor_predictors.nc')
+        sig_nc.to_netcdf(bdnc+'sig_predictors.nc')
     
     # Get the correlation between predictor and predictand with stepwise selection
     cor_nc, sig_nc = get_sig_pred(predodata_3m_fit.sel(time=train), predadata_3m_nc.sel(time=train), predadata_3m.sel(time=train))
@@ -107,6 +109,8 @@ def regr_loop(predodata_3m, predodata_3m_trend, predadata_3m, timez, train, test
     if FC:    # save figure with correlation between predictor and predictand
         #plot_corr_pred(cor_nc,sig_nc,predictand,predictors,test[0].year,test[0].month,'/nobackup/users/krikken/SPESv2/plots/'+predictand+'/predcor/',CLICK_PREDCOR=True)
         plotcor_pred(cor_nc,sig=sig_nc,bd=bdp+predictand+'/predcor/',savename='corr_pred_stepwise_'+str(test[0])[:7],suptitle=predictand+' '+str(test[0])[:7])
+        cor_nc.to_netcdf(bdnc+'cor_predictors_stepwise.nc')
+        sig_nc.to_netcdf(bdnc+'sig_predictors_stepwise.nc')
     
     # Predefine dataset to write output to, and fill with nans
     data_fit = xr.Dataset(coords={'lat': predadata_3m.lat,
@@ -158,8 +162,9 @@ def regr_loop(predodata_3m, predodata_3m_trend, predadata_3m, timez, train, test
     ## Get grid points where we still need to loop over to get the model fit, i.e. where beside CO2EQ there are significant predictors            
     rest = np.sum(sig_nc[1:, :] < sig_val, axis=0) > 0    
     ii, jj = np.where(rest)   
-   
+    
     ### REGRESSION LOOP
+
     t1 = time.time()
     # Convert data to numpy arrays before loop as it is very slow to do this in the loop per grid point..
     Y_tr = predadata_3m_nc.sel(time=train).values                   # Detrended predictand training data
@@ -259,7 +264,7 @@ def regr_loop2(predodata_3m, predodata_3m_trend, predadata_3m, timez, train, tes
     cor_nc, sig_nc = cor_pred(predodata_3m_fit.sel(time=train), predadata_3m_nc.sel(time=train), y=predadata_3m.sel(time=train))
     if FC:
         plotcor_pred(cor_nc,sig=sig_nc,bd='/nobackup/users/krikken/SPESv2/testplots/'+predictand+'/predcor/',savename='corr_pred_orig_'+str(test[0])[:7],suptitle=predictand+' '+str(test[0])[:7])
-    #cor_nc, sig_nc = get_sig_pred(predodata_3m_fit.sel(time=train), predadata_3m_nc.sel(time=train), predadata_3m.sel(time=train))
+    cor_nc, sig_nc = get_sig_pred(predodata_3m_fit.sel(time=train), predadata_3m_nc.sel(time=train), predadata_3m.sel(time=train))
     sig_nc_np = sig_nc.to_array(dim='predictors').values
         
     #po_nc, pa_nc, pa, sig_val=0.1, BOOTSTRAP=False):
@@ -423,6 +428,11 @@ def regrezzion(y,X_tr,X_te,sig):
     beta[sig] = results.params[1:]
     return fit_train,fit_test,beta
 
+def calc_trend(self,axis=-1):
+    x_a = np.array([-1.,0.,1.])
+    y_a = self - self.mean(axis=axis,keepdims=True)
+    beta = (y_a * x_a).mean(axis=axis) / (x_a**2).mean()
+    return beta*3.
 
 
 def xr_regression(y,sig):

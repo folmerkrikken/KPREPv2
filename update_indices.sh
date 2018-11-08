@@ -52,6 +52,7 @@ wget -N http://climexp.knmi.nl/NCDCData/ersst_nino3.4a.dat -P inputdata/
 wget -N http://climexp.knmi.nl/NCDCData/dmi_ersst.dat -P inputdata/
 wget -N http://climexp.knmi.nl/UWData/pdo_ersst.dat -P inputdata/
 wget -N http://climexp.knmi.nl/NCDCData/amo_ersst_ts.dat -P inputdata/
+#wget -N http://climexp.knmi.nl/NCDCData/amo_ersst_ts.dat -P inputdata/
 
 
 

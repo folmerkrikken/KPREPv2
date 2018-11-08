@@ -211,12 +211,13 @@ for i,pred in enumerate(predictors):
         gpcccom = xr.open_dataset(bdid+'gpcc_10_combined_r'+str(resolution)+'.nc')
         gpcccom.precip.values = anom_df(gpcccom.precip,1980,2010,styear)
         gpcccom = gpcccom.precip.rename('CPREC')
-        gpcccom.time.values = rewrite_time(gpcccom)
+        #gpcccom.time.values = rewrite_time(gpcccom)
         if i == 0: predodata = df
-        else: predodata = xr.merge([predodata,gpcccom.astype('float32')])
+        else: predodata = xr.merge([predodata,gpcccom.sel(time=slice('1901-01-01',gpcccom.time[-1])).astype('float32')])
 
     else:
         df = load_clim_index(indices_locs[pred],styear,endyear,endmonth,pred)
+        print(df)
         if i==0: predodata = df
         else: predodata = xr.merge([predodata,df.astype('float32')])
 
@@ -272,7 +273,9 @@ for p,predictand in enumerate(predictands):
     
     if MLR_PRED: 
         print('MLR_PRED is True, calculating trend over previous 3 months for all predictors')
+        #sys.exit()
         predodata_3m_trend = pred_trend(predodata[predictorz[p][:-1]]).isel(time=slice(None,-1))
+        #predodata_3m_trend = predodata[predictorz[p][:-1]].rolling(time=3,center=True).reduce(calc_trend) 
         predodata_3m_trend['time'].values = pd.DatetimeIndex(predodata_3m_trend['time'].values) + pd.DateOffset(months=2)
 
     
